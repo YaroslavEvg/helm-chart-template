@@ -1,2 +1,2 @@
-*.yaml linguist-language=Helm
-*.tpl linguist-language=Helm
+*.yaml linguist-language=YAML
+*.tpl linguist-language=YAML
