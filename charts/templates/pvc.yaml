@@ -1,0 +1,26 @@
+{{- if .Values.pvcs.enabled }}
+{{- $baseName := .Values.global.base_name -}}
+{{- range .Values.pvcs.items }}
+{{- $pvcName := ternary (printf "%s-%s" $baseName .name) .name $.Values.group_service.enabled }}
+{{- $pvcSuffix := "-volume" }}
+{{- $endsWithPvc := hasSuffix $pvcSuffix $pvcName }}
+{{- $finalName := ternary $pvcName (printf "%s%s" $pvcName $pvcSuffix) $endsWithPvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $finalName }}
+  labels:
+    {{- $trimmedName := trimSuffix "-volume" $pvcName }}
+    app: {{ $trimmedName }}
+    app.kubernetes.io/part-of: {{ $baseName }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: "{{ .volumeMode }}"
+  resources:
+    requests:
+      storage: "{{ .storage }}"
+---
+{{- end }}
+{{- end }}

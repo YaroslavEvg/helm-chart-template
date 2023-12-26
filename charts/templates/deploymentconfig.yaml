@@ -1,0 +1,167 @@
+{{- if .Values.deploymentConfigs.enabled }}
+{{- $global := .Values.global -}}
+{{- $baseName := .Values.global.base_name -}}
+{{- range .Values.deploymentConfigs.items }}
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+  labels:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/instance: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/part-of: {{ $baseName }}
+    app.openshift.io/runtime: {{ .name }}
+    app.kubernetes.io/component: DeploymentConfig
+spec:
+  strategy:
+    type: Rolling
+    rollingParams:
+      updatePeriodSeconds: 1
+      intervalSeconds: 1
+      timeoutSeconds: 600
+      maxUnavailable: 25%
+      maxSurge: 25%
+    resources: {}
+    activeDeadlineSeconds: 21600
+  triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+          {{- if .initContainer_for_deploymentconfig.enabled }}
+          - {{ .initContainer_for_deploymentconfig.name }}
+          {{- end }}
+        from:
+          kind: ImageStreamTag
+          namespace: {{ .namespace }}
+          name: {{ .image }}:{{ .image_version }}
+    - type: ConfigChange
+  replicas: {{ .resources.replicas }}
+  revisionHistoryLimit: {{ .resources.revisionHistoryLimit }}
+  test: false
+  selector:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    deploymentconfig: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+        deploymentconfig: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+      annotations:
+        openshift.io/generated-by: OpenShiftWebConsole
+    spec:
+      {{- if .volumes.enabled }}
+      volumes: {{- toYaml .volumes.items | nindent 8 }}
+      {{- end }}
+      {{- if .initContainer_for_deploymentconfig.enabled }}
+      initContainers:
+        - name: {{ .initContainer_for_deploymentconfig.name }}
+          image: {{ .initContainer_for_deploymentconfig.image_front }}
+          command:
+          {{- range .initContainer_for_deploymentconfig.command }}
+            - {{ . }}
+          {{- end }}
+          resources:
+            limits:
+              cpu: "{{ .initContainer_for_deploymentconfig.cpu_limit }}"
+              memory: "{{ .initContainer_for_deploymentconfig.memory_limit }}"
+            requests:
+              cpu: "{{ .initContainer_for_deploymentconfig.cpu_request }}"
+              memory: "{{ .initContainer_for_deploymentconfig.memory_request }}"
+          volumeMounts: {{ toYaml .initContainer_for_deploymentconfig.volumeMounts | nindent 12 }}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+      {{- end }}
+      containers:
+        - name: "{{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}"
+          {{- if .resources.ports.enabled }}
+          ports:
+            {{- range .resources.ports.items }}
+            - containerPort: {{ .container_port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          resources:
+            limits:
+              cpu: "{{ .resources.cpu_limit }}"
+              memory: "{{ .resources.memory_limit }}"
+            requests:
+              cpu: "{{ .resources.cpu_request }}"
+              memory: "{{ .resources.memory_request }}"
+          {{- if .volumeMounts.enabled }}
+          volumeMounts: {{- toYaml .volumeMounts.items | nindent 12 }}
+          {{- end }}
+          {{- if .command.enabled }}
+          command:
+            {{- range .command.items }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if .args.enabled }}
+          args:
+            {{- range .args.items }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if or .envs.configMaps.enabled .envs.secrets.enabled }}
+          envFrom:
+            {{- if .envs.configMaps.enabled }}
+              {{- range .envs.configMaps.items }}
+            - configMapRef:
+                name: {{ .name }}
+              {{- end }}
+            {{- end }}
+            {{- if .envs.secrets.enabled }}
+              {{- range .envs.secrets.items }}
+            - secretRef:
+                name: {{ .name }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          imagePullPolicy: IfNotPresent
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          {{- if .readinessProbe }}
+          readinessProbe:
+            {{- if eq .readinessProbe.type "httpGet" }}
+            httpGet: {{- toYaml .readinessProbe.httpGet | nindent 14 }}
+            {{- end }}
+            {{- if eq .readinessProbe.type "tcpSocket" }}
+            tcpSocket: {{- toYaml .readinessProbe.tcpSocket | nindent 14 }}
+            {{- end }}
+            {{- if eq .readinessProbe.type "exec" }}
+            exec: {{- toYaml .readinessProbe.exec | nindent 14 }}
+            {{- end }}
+            initialDelaySeconds: {{ .readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .readinessProbe.successThreshold }}
+            failureThreshold: {{ .readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .livenessProbe }}
+          livenessProbe:
+            {{- if eq .livenessProbe.type "httpGet" }}
+            httpGet: {{- toYaml .livenessProbe.httpGet | nindent 14 }}
+            {{- end }}
+            {{- if eq .livenessProbe.type "tcpSocket" }}
+            tcpSocket: {{- toYaml .livenessProbe.tcpSocket | nindent 14 }}
+            {{- end }}
+            {{- if eq .livenessProbe.type "exec" }}
+            exec: {{- toYaml .livenessProbe.exec | nindent 14 }}
+            {{- end }}
+            initialDelaySeconds: {{ .livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .livenessProbe.successThreshold }}
+            failureThreshold: {{ .livenessProbe.failureThreshold }}
+          {{- end }}
+          {{ if .initContainer_for_deploymentconfig.enabled -}}
+          image: {{ .initContainer_for_deploymentconfig.image_nginx }}
+          {{- end }}
+---
+{{- end }}
+{{- end }}

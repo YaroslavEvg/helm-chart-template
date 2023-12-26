@@ -1,0 +1,170 @@
+group_service:
+  enabled: true # trigger for group service examle: group-redis and group-front
+
+global:
+  base_name: group # for group service examle: group-redis and group-front
+  argocd_namespace: "clm" # for secret in Vault namespace/project
+
+deploymentConfigs:
+  enabled: true
+  items:
+    - name: redis
+      namespace: openshift
+      image: redis
+      image_version: latest
+      command:
+        enabled: true
+        items:
+          - /bin/sh
+          - '"-c"'
+          # [Другие command] [Для прокидывание кавычек используй - '"value"']
+      args:
+        enabled: true
+        items:
+          - '"--requirepass"'
+          - $(REDIS_PASSWORD)
+          # [Другие args] [Для прокидывание кавычек используй - '"value"']
+      resources:
+        replicas: 1
+        revisionHistoryLimit: 5
+        cpu_limit: "1"
+        memory_limit: "600Mi"
+        cpu_request: "500m"
+        memory_request: "400Mi"
+        ports:
+          enabled: true
+          items:
+            - container_port: 6379
+              protocol: TCP
+            # [Другие container_port]
+      volumes:
+        enabled: true
+        items:
+          - name: api-redis-volume
+            persistentVolumeClaim:
+              claimName: api-redis-volume
+          # [Другие volumes]
+      volumeMounts:
+        enabled: true
+        items:
+          - name: api-redis-volume
+            mountPath: /data
+          # [Другие volumeMounts]
+      envs:
+        configMaps:
+          enabled: true
+          items:
+            - name: api-redis-config
+            # [Другие configMaps]
+        secrets:
+          enabled: true
+          items:
+            - name: api-redis-secret
+            # [Другие secrets]
+      readinessProbe:
+        type: tcpSocket # Варианты: httpGet, tcpSocket, exec
+        httpGet:
+          path: /health
+          port: 6379
+        tcpSocket:
+          port: 6379
+        exec:
+          command:
+            - /bin/sh
+            - "-c"
+            - "redis-cli -h 127.0.0.1 -a ${REDIS_PASSWORD} ping | grep -q PONG"
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        timeoutSeconds: 1
+        successThreshold: 1
+        failureThreshold: 3
+      livenessProbe:
+        type: tcpSocket # Варианты: httpGet, tcpSocket, exec
+        httpGet:
+          path: /health
+          port: 6379
+        tcpSocket:
+          port: 6379
+        exec:
+          command:
+            - /bin/sh
+            - "-c"
+            - "redis-cli -h 127.0.0.1 -a ${REDIS_PASSWORD} ping | grep -q PONG"
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        timeoutSeconds: 1
+        successThreshold: 1
+        failureThreshold: 3
+      initContainer_for_deploymentconfig:
+        enabled: false
+        name: front-initcontainer
+        image_front: image-registry.openshift-image-registry.svc:5000/eco-common/nginx-unprivileged:1.20.2-alpine@sha256:af346c7e11b8d1be46c185ecbfab84c95e6cc76e3f33a7bf764a39daa280885d
+        image_nginx: image-registry.openshift-image-registry.svc:5000/example-namespace/example-image-name
+        cpu_limit: "1"
+        memory_limit: "600Mi"
+        cpu_request: "500m"
+        memory_request: "400Mi"
+        volumeMounts:
+          - name: shared
+            mountPath: /shared/dist
+        command:
+          - sh
+          - '"-c"'
+          - cp -r /frontend/dist/* /shared/dist/
+    # [Другие deploymentConfigs]
+
+services:
+  enabled: true
+  items:
+    - name: redis
+      ports:
+        - port: 6379
+          targetPort: 6379
+          protocol: TCP
+        # [Другие ports]
+    # [Другие service]
+
+routes:
+  enabled: true
+  items:
+    - name: redis
+      targetPort: 8080-tcp
+    # [Другие route]
+
+pvcs:
+  enabled: true
+  items:
+    - name: api-redis-volume
+      volumeMode: Filesystem
+      storage: 1Gi
+    # [Другие pvc]
+
+secrets:
+  enabled: true
+  items:
+    - name: redis-secret
+      keys:
+        - REDIS_PASSWORD
+        - REDIS_URL
+        # [Другие secrets]
+    # [Другие secrets-maps]
+
+configMaps:
+  enabled: true
+  items:
+    - name: redis-config
+      keys:
+        REDIS_PASSWORD: 2
+        REDIS_URL: test
+        # [Другие ENVS]
+    # [Другие configMaps]
+
+service_monitors:
+  enabled: true
+  items:
+    - name: redis
+      paths:
+        - path: /metrics
+          targetPort: 8081
+        # [Другие path]
+    # [Другие service_monitor]

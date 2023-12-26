@@ -1,0 +1,20 @@
+{{- if .Values.routes.enabled }}
+{{- $baseName := .Values.global.base_name -}}
+{{- range .Values.routes.items }}
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+  labels:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/part-of: {{ $baseName }}
+    app.kubernetes.io/component: route
+spec:
+  to:
+    kind: Service
+    name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+  port:
+    targetPort: {{ required "A valid targetPort is required!" .targetPort }}
+---
+{{- end }}
+{{- end }}

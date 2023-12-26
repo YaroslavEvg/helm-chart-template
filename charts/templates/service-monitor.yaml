@@ -1,0 +1,24 @@
+{{- if .Values.service_monitors.enabled }}
+{{- $baseName := .Values.global.base_name -}}
+{{- range .Values.service_monitors.items }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+  labels:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}-service-monitor
+    app.kubernetes.io/part-of: {{ $baseName }}
+spec:
+  endpoints:
+    {{- range .paths }}
+    - path: {{ .path }}
+      targetPort: {{ .targetPort }}
+    {{- end }}
+  selector:
+    matchLabels:
+      app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ required "A valid .name is required!" .name }}{{ else }}{{ .name }}{{ end }}
+---
+{{- end }}
+{{- end }}

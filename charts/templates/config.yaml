@@ -1,0 +1,22 @@
+{{- if .Values.configMaps.enabled }}
+{{- $baseName := .Values.global.base_name -}}
+{{- $argocdNamespace := .Values.global.argocd_namespace -}}
+{{- range .Values.configMaps.items }}
+{{- $configName := ternary (printf "%s-%s" $baseName .name) .name $.Values.group_service.enabled }}
+{{- $configSuffix := "-config" }}
+{{- $endsWithConfig := hasSuffix $configSuffix $configName }}
+{{- $finalName := ternary $configName (printf "%s%s" $configName $configSuffix) $endsWithConfig }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ $finalName }}"
+  labels:
+    {{- $trimmedName := trimSuffix "-config" $configName }}
+    app: {{ $trimmedName }}
+    app.kubernetes.io/part-of: {{ $baseName }}
+    app.kubernetes.io/component: configuration
+data:
+{{- toYaml .keys | nindent 2 }}
+---
+{{- end }}
+{{- end }}

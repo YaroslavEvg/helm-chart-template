@@ -1,0 +1,35 @@
+{{- if .Values.services.enabled }}
+{{- $baseName := .Values.global.base_name -}}
+{{- range .Values.services.items }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+  labels:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/instance: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/name: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    app.kubernetes.io/part-of: {{ $baseName }}
+    app.kubernetes.io/component: service
+spec:
+  ipFamilies:
+    - IPv4
+  type: ClusterIP
+  selector:
+    app: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+    deploymentconfig: {{ if $.Values.group_service.enabled }}{{ $baseName }}-{{ .name }}{{ else }}{{ .name }}{{ end }}
+  ports:
+    {{- range .ports }}
+    - name: {{ .port }}-{{ .protocol | lower}}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: {{ .protocol }}
+    {{- end }}
+  internalTrafficPolicy: Cluster
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+status:
+  loadBalancer: {}
+---
+{{- end }}
+{{- end }}
