@@ -154,8 +154,8 @@ configMaps:
   items:
     - name: redis-config
       keys:
-        REDIS_PASSWORD: 2
-        REDIS_URL: test
+        REDIS_PASSWORD: "2"
+        REDIS_URL: "test"
         # [Другие ENVS]
     # [Другие configMaps]
 
