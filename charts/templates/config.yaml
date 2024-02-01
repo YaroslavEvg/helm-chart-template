@@ -16,7 +16,10 @@ metadata:
     app.kubernetes.io/part-of: {{ $baseName }}
     app.kubernetes.io/component: configuration
 data:
-{{- toYaml .keys | nindent 2 }}
+  {{- range $key, $value := .keys }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+
 ---
 {{- end }}
 {{- end }}
